@@ -1,0 +1,40 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@layer base {
+  :root {
+    --bg-base: #FFFFFF;
+    --bg-surface: #F9FAFB;
+    --bg-elevated: #F3F4F6;
+    --text-primary: #111827;
+    --text-secondary: #4B5563;
+    --text-muted: #9CA3AF;
+    --accent-primary: #1877f2;
+    --semantic-positive: #10B981;
+    --semantic-negative: #EF4444;
+    --border-default: #E5E7EB;
+  }
+  
+  .dark {
+    --bg-base: #0a0c10;
+    --bg-surface: #121417;
+    --bg-elevated: #1a1c20;
+    --text-primary: #F9FAFB;
+    --text-secondary: #9CA3AF;
+    --text-muted: #6B7280;
+    --accent-primary: #1877f2;
+    --semantic-positive: #10B981;
+    --semantic-negative: #F87171;
+    --border-default: #2A2E35;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
