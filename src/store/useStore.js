@@ -40,6 +40,8 @@ const checkAutoUnpaidNested = (treeData) => {
 
 export const useStore = create((set, get) => ({
   theme: 'dark',
+  bin: [],
+
   setInitialTheme: () => {
     document.documentElement.classList.add('dark');
   },
@@ -52,6 +54,7 @@ export const useStore = create((set, get) => ({
 
   // DAT Hierarchy
   datUsers: checkAutoUnpaidNested(initialDatUsers),
+  
   addDatMail: (datType, newMail) => set((state) => ({
     datUsers: state.datUsers.map(typeGroup => {
       if (typeGroup.dat_type === datType) {
@@ -60,6 +63,7 @@ export const useStore = create((set, get) => ({
       return typeGroup;
     })
   })),
+
   addDatUser: (datType, mailId, user) => set((state) => ({
     datUsers: checkAutoUnpaidNested(state.datUsers.map(typeGroup => {
       if (typeGroup.dat_type === datType) {
@@ -76,6 +80,7 @@ export const useStore = create((set, get) => ({
       return typeGroup;
     }))
   })),
+
   deleteDatMail: (datType, mailId) => set((state) => ({
     datUsers: state.datUsers.map(typeGroup => {
       if (typeGroup.dat_type === datType) {
@@ -84,6 +89,7 @@ export const useStore = create((set, get) => ({
       return typeGroup;
     })
   })),
+
   importDatUsers: (datType, mailId, parsedUsersArray) => set((state) => ({
     datUsers: checkAutoUnpaidNested(state.datUsers.map(typeGroup => {
       if (typeGroup.dat_type === datType) {
@@ -100,15 +106,45 @@ export const useStore = create((set, get) => ({
       return typeGroup;
     }))
   })),
-  deleteDatUser: (userId) => set((state) => ({
-    datUsers: state.datUsers.map(typeGroup => ({
-      ...typeGroup,
-      mails: typeGroup.mails.map(m => ({
-        ...m,
-        users: m.users.filter(u => u.id !== userId)
-      }))
-    }))
-  })),
+
+  deleteDatUser: (userId) => set((state) => {
+    let deletedUser = null;
+    let deletedFromType = null;
+    let deletedFromMail = null;
+
+    const newDatUsers = state.datUsers.map(typeGroup => {
+       return {
+         ...typeGroup,
+         mails: typeGroup.mails.map(m => {
+            const tgt = m.users.find(u => u.id === userId);
+            if (tgt) {
+               deletedUser = tgt;
+               deletedFromType = typeGroup.dat_type;
+               deletedFromMail = m;
+            }
+            return { ...m, users: m.users.filter(u => u.id !== userId) }
+         })
+       };
+    });
+
+    if (deletedUser) {
+      return {
+        datUsers: newDatUsers,
+        bin: [
+          ...state.bin, 
+          { 
+             ...deletedUser, 
+             deleted_at: new Date().toISOString(),
+             original_dat_type: deletedFromType,
+             original_mail_id: deletedFromMail.id,
+             original_mail_name: deletedFromMail.screen_name || deletedFromMail.mail_name
+          }
+        ]
+      };
+    }
+    return { datUsers: newDatUsers };
+  }),
+
   updateDatStatus: (userId, status) => set((state) => ({
     datUsers: state.datUsers.map(typeGroup => ({
       ...typeGroup,
@@ -124,10 +160,67 @@ export const useStore = create((set, get) => ({
       ...typeGroup,
       mails: typeGroup.mails.map(m => ({
         ...m,
-        users: m.users.map(u => u.id === userId ? { ...u, ...updatedFields } : u)
+        users: m.users.map(u => {
+           if (u.id === userId) {
+             const historyObj = {
+               price: u.price,
+               status: u.status,
+               start_date: u.start_date,
+               end_date: u.end_date,
+               modified_at: new Date().toISOString(),
+               action: 'Updated'
+             };
+             return { 
+               ...u, 
+               ...updatedFields, 
+               history: [...(u.history || []), historyObj] 
+             };
+           }
+           return u;
+        })
       }))
     })))
   })),
+
+  // Bin Logic
+  restoreDatUser: (binId) => set((state) => {
+    const userToRestore = state.bin.find(b => b.id === binId);
+    if (!userToRestore) return state;
+
+    const { deleted_at, original_dat_type, original_mail_id, original_mail_name, ...cleanUser } = userToRestore;
+
+    let newDatUsers = state.datUsers.map(typeGroup => {
+      if (typeGroup.dat_type === original_dat_type) {
+        let foundMail = false;
+        const newMails = typeGroup.mails.map(m => {
+           if (m.id === original_mail_id) {
+              foundMail = true;
+              return { ...m, users: [...m.users, cleanUser] };
+           }
+           return m;
+        });
+        
+        if (!foundMail) {
+           newMails.push({
+              id: original_mail_id,
+              mail_name: 'Restored Mail',
+              screen_name: original_mail_name,
+              users: [cleanUser]
+           });
+        }
+        return { ...typeGroup, mails: newMails };
+      }
+      return typeGroup;
+    });
+
+    return {
+      datUsers: checkAutoUnpaidNested(newDatUsers),
+      bin: state.bin.filter(b => b.id !== binId)
+    };
+  }),
+
+  emptyBin: () => set({ bin: [] }),
+  permanentlyDeleteFromBin: (binId) => set(state => ({ bin: state.bin.filter(b => b.id !== binId) })),
 
   // Dialers (Flat List)
   dialers: checkAutoUnpaidSingle(initialDialers),
@@ -167,6 +260,7 @@ export const useStore = create((set, get) => ({
       breakdown
     };
   },
+  
   getDialerMetrics: () => {
     const users = get().dialers;
     const breakdown = { 'Zoom': 0, 'Google Voice': 0, 'Teams': 0, 'Other': 0 };
