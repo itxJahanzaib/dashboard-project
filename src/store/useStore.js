@@ -42,6 +42,17 @@ export const useStore = create((set, get) => ({
   theme: 'dark',
   bin: [],
 
+  // Authentication
+  isAuthenticated: false,
+  login: (username, password) => set((state) => {
+    // Hardcoded simple authentication check
+    if (username === 'admin' && password === 'ASH@Dashboard2026!') {
+      return { isAuthenticated: true };
+    }
+    return { isAuthenticated: false };
+  }),
+  logout: () => set({ isAuthenticated: false }),
+
   setInitialTheme: () => {
     document.documentElement.classList.add('dark');
   },
