@@ -10,6 +10,7 @@ import { formatCurrency } from '../lib/utils';
 
 export default function Dialers() {
   const { dialers, deleteDialer, updateDialerStatus, addDialer, importDialers } = useStore();
+  const [activeType, setActiveType] = useState('Zoom');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const fileInputRef = useRef(null);
@@ -27,12 +28,13 @@ export default function Dialers() {
 
   const filteredDialers = useMemo(() => {
     return dialers.filter(d => {
+      const matchType = d.dialer_type.toLowerCase() === activeType.toLowerCase();
       const matchSearch = d.client_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           d.dialer_mail.toLowerCase().includes(searchQuery.toLowerCase());
       const matchStatus = filterStatus === 'All' || d.status === filterStatus;
-      return matchSearch && matchStatus;
+      return matchType && matchSearch && matchStatus;
     });
-  }, [dialers, searchQuery, filterStatus]);
+  }, [dialers, searchQuery, filterStatus, activeType]);
 
   const handleCreateDialer = (e) => {
     e.preventDefault();
@@ -49,13 +51,18 @@ export default function Dialers() {
     setIsDialerModalOpen(false);
     setNewDialer({
       client_name: '',
-      dialer_type: 'Zoom',
+      dialer_type: activeType,
       dialer_mail: '',
       price: 0,
       status: 'Paid',
       start_date: format(new Date(), 'yyyy-MM-dd'),
       end_date: format(new Date(new Date().setDate(new Date().getDate() + 30)), 'yyyy-MM-dd')
     });
+  };
+
+  const handleOpenModal = () => {
+    setNewDialer(prev => ({ ...prev, dialer_type: activeType }));
+    setIsDialerModalOpen(true);
   };
 
   const handleCSVUpload = (e) => {
@@ -138,10 +145,27 @@ export default function Dialers() {
           <Button variant="secondary" onClick={handleCSVExport} className="flex items-center gap-2 text-[var(--text-primary)]">
             <FileDown size={16} /> Export CSV
           </Button>
-          <Button onClick={() => setIsDialerModalOpen(true)} className="flex items-center gap-2">
+          <Button onClick={handleOpenModal} className="flex items-center gap-2">
             <Plus size={16} /> Add Dialer
           </Button>
         </div>
+      </motion.div>
+
+      {/* Tier 1: Dialer Types */}
+      <motion.div variants={fadeUp} className="mb-6 flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+        {['Zoom', 'Google Voice', 'Teams', 'Other'].map(type => (
+          <button
+            key={type}
+            onClick={() => setActiveType(type)}
+            className={`px-6 py-3 rounded-xl border font-display font-medium tracking-widest transition-colors shadow-sm whitespace-nowrap ${
+              activeType === type 
+                ? 'bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[#0A0A0A]' 
+                : 'bg-[var(--bg-surface)] border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--text-muted)]'
+            }`}
+          >
+            {type}
+          </button>
+        ))}
       </motion.div>
 
       <motion.div variants={fadeUp}>
@@ -167,8 +191,16 @@ export default function Dialers() {
               <option value="Unpaid">Unpaid</option>
             </select>
           </div>
-          <div className="overflow-x-auto min-h-[400px]">
-            <table className="w-full text-left border-collapse">
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={activeType}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-x-auto min-h-[400px]"
+            >
+              <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[var(--bg-elevated)]/50 border-b border-[var(--border-default)] text-[var(--text-muted)] text-xs font-mono uppercase tracking-wider">
                   <th className="p-4 font-medium">Client Name</th>
@@ -182,50 +214,46 @@ export default function Dialers() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout">
-                  {filteredDialers.length > 0 ? (
-                    filteredDialers.map((dialer) => (
-                      <motion.tr 
-                        key={dialer.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className={`border-b border-[var(--border-default)] transition-colors group ${
-                          dialer.status === 'Unpaid' ? 'bg-[var(--semantic-negative)]/5' : 'hover:bg-[var(--bg-elevated)]/50'
-                        }`}
-                      >
-                        <td className="p-4 font-mono text-sm">{dialer.client_name}</td>
-                        <td className="p-4 text-sm text-[var(--text-secondary)]">{dialer.dialer_type}</td>
-                        <td className="p-4 text-sm text-[var(--text-secondary)] font-mono">{dialer.dialer_mail}</td>
-                        <td className="p-4 font-mono text-sm text-[var(--text-primary)]">{formatCurrency(dialer.price || 0)}</td>
-                        <td className="p-4">
-                          <button onClick={() => updateDialerStatus(dialer.id, dialer.status === 'Paid' ? 'Unpaid' : 'Paid')} className="focus:outline-none">
-                            <Badge status={dialer.status}>{dialer.status}</Badge>
-                          </button>
-                        </td>
-                        <td className="p-4 font-mono text-sm text-[var(--text-muted)]">{format(new Date(dialer.start_date), 'MMM dd, yyyy')}</td>
-                        <td className="p-4 font-mono text-sm text-[var(--text-muted)]">{format(new Date(dialer.end_date), 'MMM dd, yyyy')}</td>
-                        <td className="p-4 text-right">
-                          <button 
-                            onClick={() => deleteDialer(dialer.id)}
-                            className="text-[var(--text-muted)] hover:text-[var(--semantic-negative)] transition-colors opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      </motion.tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-[var(--text-muted)] font-mono text-sm">
-                        No dialers found in this view.
+                {filteredDialers.length > 0 ? (
+                  filteredDialers.map((dialer) => (
+                    <tr 
+                      key={dialer.id}
+                      className={`border-b border-[var(--border-default)] transition-colors group ${
+                        dialer.status === 'Unpaid' ? 'bg-[var(--semantic-negative)]/5' : 'hover:bg-[var(--bg-elevated)]/50'
+                      }`}
+                    >
+                      <td className="p-4 font-mono text-sm">{dialer.client_name}</td>
+                      <td className="p-4 text-sm text-[var(--text-secondary)]">{dialer.dialer_type}</td>
+                      <td className="p-4 text-sm text-[var(--text-secondary)] font-mono">{dialer.dialer_mail}</td>
+                      <td className="p-4 font-mono text-sm text-[var(--text-primary)]">{formatCurrency(dialer.price || 0)}</td>
+                      <td className="p-4">
+                        <button onClick={() => updateDialerStatus(dialer.id, dialer.status === 'Paid' ? 'Unpaid' : 'Paid')} className="focus:outline-none">
+                          <Badge status={dialer.status}>{dialer.status}</Badge>
+                        </button>
+                      </td>
+                      <td className="p-4 font-mono text-sm text-[var(--text-muted)]">{format(new Date(dialer.start_date), 'MMM dd, yyyy')}</td>
+                      <td className="p-4 font-mono text-sm text-[var(--text-muted)]">{format(new Date(dialer.end_date), 'MMM dd, yyyy')}</td>
+                      <td className="p-4 text-right">
+                        <button 
+                          onClick={() => deleteDialer(dialer.id)}
+                          className="text-[var(--text-muted)] hover:text-[var(--semantic-negative)] transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </td>
                     </tr>
-                  )}
-                </AnimatePresence>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-[var(--text-muted)] font-mono text-sm">
+                      No dialers found in this view.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
-          </div>
+            </motion.div>
+          </AnimatePresence>
         </Card>
       </motion.div>
 

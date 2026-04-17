@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { Card } from '../components/ui/Card';
 import { Plus, Search, Trash2, Mail, FileUp, FileDown, Hash, ChevronLeft, ChevronRight, ArchiveRestore } from 'lucide-react';
@@ -193,9 +193,9 @@ export default function DatUsers() {
           <button
             key={type}
             onClick={() => setActiveType(type)}
-            className={`px-6 py-3 rounded-xl border font-display tracking-widest transition-all shadow-sm ${
+            className={`px-6 py-3 rounded-xl border font-display font-medium tracking-widest transition-colors shadow-sm ${
               activeType === type 
-                ? 'bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[#0A0A0A] font-bold' 
+                ? 'bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[#0A0A0A]' 
                 : 'bg-[var(--bg-surface)] border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--text-muted)]'
             }`}
           >
@@ -294,14 +294,24 @@ export default function DatUsers() {
             </select>
           </div>
           
-          <DatUserTable 
-            filteredUsers={filteredUsers}
-            activeMailId={activeMailId}
-            onStatusToggle={updateDatStatus}
-            onEditClick={triggerEdit}
-            onDeleteClick={deleteDatUser}
-            onRowClick={setHistoryUser}
-          />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeType + activeMailId}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <DatUserTable 
+                filteredUsers={filteredUsers}
+                activeMailId={activeMailId}
+                onStatusToggle={updateDatStatus}
+                onEditClick={triggerEdit}
+                onDeleteClick={deleteDatUser}
+                onRowClick={setHistoryUser}
+              />
+            </motion.div>
+          </AnimatePresence>
         </Card>
       </motion.div>
 
